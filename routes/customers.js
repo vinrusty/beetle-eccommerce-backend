@@ -19,7 +19,7 @@ router.post('/register', (req, res) => {
     const {firstName, lastName, email, phone, address, password, city, state} = req.body;
     const hasedPassword = bcrypt.hashSync(password, 10);
     try{
-        Customer.findOne({email: email}, (err, result) => {
+        Customer.findOne({email: email}, async (err, result) => {
             if(err){
                 res.status(500).json('server error')
             }
@@ -34,8 +34,13 @@ router.post('/register', (req, res) => {
                     city: city,
                     state: state
                 })
-                const savedCustomer = customer.save();
-                res.json(savedCustomer);
+                const savedCustomer = await customer.save();
+                res.json({
+                    firstName: savedCustomer.firstName,
+                    lastName: savedCustomer.lastName,
+                    email: savedCustomer.email,
+                    phone: savedCustomer.phone,
+                });
             }
             else{
                 res.status(403).json('customer already exists');
@@ -50,7 +55,7 @@ router.post('/register', (req, res) => {
 
 router.post('/login', (req, res) => {
     const { email, password } = req.body;
-    Customer.findOne({email: email}, (err, result) => {
+    Customer.findOne({email: email}, async (err, result) => {
         if(err){
             res.status(500).json('server error');
         }
@@ -64,9 +69,13 @@ router.post('/login', (req, res) => {
                 const token = new RefreshToken({
                     refreshToken: rToken
                 });
-                token.save();
+                await token.save();
                 res.json({
-                    user: result.email,
+                    user: {
+                        username: result.firstName + " " + result.lastName,
+                        email: result.email,
+                        phone: result.phone,
+                    },
                     aToken: aToken,
                     rToken: rToken
                 })
@@ -78,10 +87,10 @@ router.post('/login', (req, res) => {
     })
 })
 
-router.delete('/logout', authenticate, (req, res) => {
-    const token = req.body['x-access-token'] || req.headers['x-access-token'];
+router.delete('/logout', authenticate, async (req, res) => {
+    const token = req.body.token;
     try{
-        RefreshToken.deleteOne({refreshToken: token})
+        await RefreshToken.deleteOne({refreshToken: token})
         res.json('success')
     }
     catch(err){
@@ -102,12 +111,12 @@ router.post('/refresh', (req, res) => {
             jwt.verify(result.refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
                 if(err) return res.sendStatus(403)
                 RefreshToken.deleteOne({refreshToken: result})
-                const newAccessToken = generateAccessToken({name: user.email})
-                const newRefreshToken = jwt.sign({name: user.email}, process.env.REFRESH_TOKEN_SECRET)
+                const newAccessToken = generateAccessToken({email: user.email})
+                const newRefreshToken = jwt.sign({email: user.email}, process.env.REFRESH_TOKEN_SECRET)
 
                 const rToken = new RefreshToken({ refreshToken: newRefreshToken })
                 rToken.save()
-                res.status(200).json({
+                return res.status(200).json({
                     accessToken: newAccessToken,
                     refreshToken: newRefreshToken,
                 })
@@ -115,6 +124,8 @@ router.post('/refresh', (req, res) => {
         }
     })
 })
+
+
 
 module.exports = router;
 
