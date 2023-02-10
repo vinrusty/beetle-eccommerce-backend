@@ -44,7 +44,7 @@ app.use(passport.session())
 
 app.use(bodyParser.json());
 app.use(cors({
-    origin: "https://beetles-ecommerce.web.app/",
+    origin: "https://beetles-ecommerce.web.app",
     methods: "GET,POST,PUT,DELETE,PATCH",
     credentials: true
 }));
